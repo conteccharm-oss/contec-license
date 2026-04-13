@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONTEC 라이선스 관리</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f3;--surface:#ffffff;--border:#e5e5e2;--border-hover:#c8c8c4;
+  --text:#1a1a18;--text-muted:#6b6b68;--text-hint:#a0a09c;
+  --blue:#185FA5;--blue-dark:#0C447C;--blue-light:#E6F1FB;--blue-mid:#B5D4F4;
+  --green:#0F6E56;--green-light:#E1F5EE;
+  --amber:#854F0B;--amber-light:#FAEEDA;
+  --red:#A32D2D;--red-light:#FCEBEB;
+  --radius:8px;--radius-lg:12px;
+}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── AUTH ── */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--bg)}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:40px 36px;width:100%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+.auth-logo{font-size:20px;font-weight:600;margin-bottom:4px;letter-spacing:-0.5px}
+.auth-logo span{color:var(--blue)}
+.auth-sub{font-size:13px;color:var(--text-muted);margin-bottom:32px}
+.auth-label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:6px}
+.auth-input{width:100%;height:42px;border:1px solid var(--border);border-radius:var(--radius);padding:0 14px;font-size:14px;color:var(--text);background:#fff;outline:none;transition:border .15s;font-family:'Noto Sans KR',sans-serif;margin-bottom:14px}
+.auth-input:focus{border-color:var(--blue)}
+.auth-btn{width:100%;height:42px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;margin-top:4px;font-family:'Noto Sans KR',sans-serif;transition:background .15s}
+.auth-btn:hover{background:var(--blue-dark)}
+.auth-btn:disabled{opacity:.6;cursor:not-allowed}
+.auth-msg{font-size:12px;margin-top:10px;text-align:center;min-height:18px}
+.auth-msg.err{color:var(--red)}
+.auth-msg.ok{color:var(--green)}
+.auth-divider{border:none;border-top:1px solid var(--border);margin:22px 0}
+.auth-toggle{font-size:13px;color:var(--text-muted);text-align:center}
+.auth-toggle a{color:var(--blue);cursor:pointer;text-decoration:none;font-weight:500}
+
+/* ── APP ── */
+#app-screen{display:none;min-height:100vh;background:var(--bg)}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.logo{font-size:16px;font-weight:600;letter-spacing:-0.4px}
+.logo span{color:var(--blue)}
+.badge{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--blue-light);color:var(--blue);font-weight:600}
+.nav{display:flex;gap:2px}
+.nav-btn{border:none;background:none;padding:6px 14px;border-radius:6px;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .15s;font-family:'Noto Sans KR',sans-serif;font-weight:400}
+.nav-btn:hover{background:var(--bg);color:var(--text)}
+.nav-btn.active{background:var(--bg);color:var(--text);font-weight:500}
+.user-area{display:flex;align-items:center;gap:10px}
+.user-email{font-size:12px;color:var(--text-muted)}
+.logout-btn{height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border);background:none;font-size:12px;color:var(--text-muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.logout-btn:hover{background:var(--bg)}
+.main{padding:24px 28px;max-width:1400px;margin:0 auto}
+.section{display:none}
+.section.active{display:block}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px}
+.stat-label{font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:500}
+.stat-value{font-size:26px;font-weight:600;letter-spacing:-0.5px}
+.stat-value.ok{color:var(--green)}
+.stat-value.warn{color:var(--amber)}
+.stat-value.danger{color:var(--red)}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0 12px;flex:1;min-width:200px;max-width:320px;height:38px}
+.search-box:focus-within{border-color:var(--blue)}
+.search-box input{border:none;background:none;outline:none;font-size:13px;color:var(--text);width:100%;font-family:'Noto Sans KR',sans-serif}
+.search-icon{font-size:15px;color:var(--text-hint)}
+select.filter{height:38px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px;padding:0 10px;outline:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+select.filter:focus{border-color:var(--blue)}
+.btn{height:38px;padding:0 16px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;font-family:'Noto Sans KR',sans-serif}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.primary:hover{background:var(--blue-dark)}
+.btn.success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.success:hover{opacity:.9}
+
+/* Table */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);background:#fafaf8;white-space:nowrap;letter-spacing:.3px}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#fafaf8}
+tbody td{padding:11px 14px;vertical-align:middle}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.tag.active{background:var(--green-light);color:var(--green)}
+.tag.expiring{background:var(--amber-light);color:var(--amber)}
+.tag.expired{background:var(--red-light);color:var(--red)}
+.tag.unused{background:var(--bg);color:var(--text-muted)}
+.tag.cat{background:var(--bg);color:var(--text-muted);font-weight:500}
+.action-btns{display:flex;gap:6px}
+.icon-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;color:var(--text-muted)}
+.icon-btn:hover{background:var(--bg)}
+.icon-btn.mail:hover{background:var(--blue-light);color:var(--blue);border-color:var(--blue-mid)}
+.icon-btn.del:hover{background:var(--red-light);color:var(--red);border-color:#F7C1C1}
+.empty{text-align:center;padding:52px 24px;color:var(--text-muted)}
+.loading-row{text-align:center;padding:36px;color:var(--text-muted);font-size:13px}
+
+/* Modal */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);width:600px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.12)}
+.modal-header{padding:20px 22px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface)}
+.modal-header h3{font-size:16px;font-weight:600}
+.close-btn{width:30px;height:30px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:18px;color:var(--text-muted);display:flex;align-items:center;justify-content:center}
+.close-btn:hover{background:var(--bg)}
+.modal-body{padding:22px}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:6px}
+.form-row input,.form-row select,.form-row textarea{width:100%;height:40px;border:1px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:13px;color:var(--text);background:#fff;outline:none;font-family:'Noto Sans KR',sans-serif;transition:border .15s}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--blue)}
+.form-row textarea{height:auto;padding:10px 12px;resize:vertical;line-height:1.6}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--surface);position:sticky;bottom:0}
+
+/* Mail */
+.mail-meta{background:#fafaf8;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:13px}
+.mail-meta-row{display:flex;gap:8px;margin-bottom:4px}
+.mail-meta-row:last-child{margin-bottom:0}
+.mail-meta-label{color:var(--text-muted);width:36px;flex-shrink:0;font-weight:500}
+.mail-preview{background:#fafaf8;border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-size:13px;line-height:1.9;white-space:pre-wrap;font-family:'Noto Sans KR',sans-serif;min-height:220px;outline:none}
+.mail-preview:focus{border-color:var(--blue)}
+.copy-success{display:none;color:var(--green);font-size:12px;margin-top:8px;font-weight:500}
+
+/* Import */
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;margin-bottom:18px}
+.settings-card h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.import-zone{border:2px dashed var(--border-hover);border-radius:var(--radius-lg);padding:40px;text-align:center;cursor:pointer;transition:all .2s}
+.import-zone:hover,.import-zone.drag{background:var(--blue-light);border-color:var(--blue)}
+.import-icon{font-size:32px;margin-bottom:12px}
+.import-zone p{font-size:13px;color:var(--text-muted)}
+.import-zone strong{color:var(--text)}
+.notice{background:var(--amber-light);border:1px solid #FAC775;border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:16px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<!-- 로그인/회원가입 화면 -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">CONTEC <span>라이선스</span></div>
+    <div class="auth-sub">SW 라이선스 관리 플랫폼</div>
+
+    <div id="view-login">
+      <label class="auth-label">이메일</label>
+      <input class="auth-input" type="email" id="login-email" placeholder="name@contec.kr" autocomplete="email">
+      <label class="auth-label">비밀번호</label>
+      <input class="auth-input" type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">로그인</button>
+      <div class="auth-msg" id="login-msg"></div>
+      <hr class="auth-divider">
+      <div class="auth-toggle">계정이 없으신가요? <a onclick="toggleView('signup')">회원가입</a></div>
+    </div>
+
+    <div id="view-signup" style="display:none">
+      <label class="auth-label">이메일</label>
+      <input class="auth-input" type="email" id="signup-email" placeholder="name@contec.kr">
+      <label class="auth-label">비밀번호 (6자 이상)</label>
+      <input class="auth-input" type="password" id="signup-pw" placeholder="••••••••">
+      <label class="auth-label">비밀번호 확인</label>
+      <input class="auth-input" type="password" id="signup-pw2" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignup()">
+      <button class="auth-btn" id="signup-btn" onclick="doSignup()">회원가입</button>
+      <div class="auth-msg" id="signup-msg"></div>
+      <hr class="auth-divider">
+      <div class="auth-toggle">이미 계정이 있으신가요? <a onclick="toggleView('login')">로그인</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- 앱 메인 -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">CONTEC <span>라이선스</span></div>
+      <span class="badge">SW 관리</span>
+      <nav class="nav">
+        <button class="nav-btn active" onclick="showSection('dashboard',this)">대시보드</button>
+        <button class="nav-btn" onclick="showSection('import',this)">가져오기</button>
+      </nav>
+    </div>
+    <div class="user-area">
+      <span class="user-email" id="user-email-display"></span>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- 대시보드 -->
+    <div id="section-dashboard" class="section active">
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">전체 SW</div><div class="stat-value" id="s-total">-</div></div>
+        <div class="stat-card"><div class="stat-label">정상 운영</div><div class="stat-value ok" id="s-active">-</div></div>
+        <div class="stat-card"><div class="stat-label">30일 내 만료</div><div class="stat-value warn" id="s-expiring">-</div></div>
+        <div class="stat-card"><div class="stat-label">만료됨</div><div class="stat-value danger" id="s-expired">-</div></div>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="소프트웨어명, 담당자 검색..." oninput="renderTable()">
+        </div>
+        <select class="filter" id="filter-status" onchange="renderTable()">
+          <option value="">전체 상태</option>
+          <option value="active">정상</option>
+          <option value="expiring">만료 임박</option>
+          <option value="expired">만료됨</option>
+          <option value="unused">미사용</option>
+        </select>
+        <select class="filter" id="filter-cat" onchange="renderTable()">
+          <option value="">전체 분류</option>
+          <option>설계</option><option>개발</option><option>보안</option><option>업무</option><option>기타</option>
+        </select>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" onclick="exportExcel()">📥 엑셀 내보내기</button>
+          <button class="btn primary" onclick="openAddModal()">+ 라이선스 추가</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>소프트웨어명</th><th>분류</th><th>라이선스 키</th>
+              <th>사용/좌석</th><th>담당자</th><th>만료일</th>
+              <th>상태</th><th>메모</th><th>액션</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="9"><div class="loading-row">⏳ 데이터 불러오는 중...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 가져오기 -->
+    <div id="section-import" class="section">
+      <div class="notice">
+        💡 내부망 PC에서 엑셀 파일을 열고 <strong>파일 → 다른 이름으로 저장 → CSV</strong> 로 저장 후 USB/메일로 가져오세요. MS Office 인증 없이도 CSV 저장은 가능합니다.
+      </div>
+      <div class="settings-card">
+        <h3>CSV / 엑셀 파일 가져오기</h3>
+        <div class="import-zone" id="drop-zone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="ev=>{ev.preventDefault();document.getElementById('drop-zone').classList.add('drag')}"
+          ondragleave="document.getElementById('drop-zone').classList.remove('drag')"
+          ondrop="handleDrop(event)">
+          <div class="import-icon">📂</div>
+          <p><strong>클릭하거나 파일을 드래그하세요</strong></p>
+          <p style="margin-top:6px;font-size:12px">xlsx, xls, csv 모두 지원</p>
+        </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
+        <div id="import-result"></div>
+      </div>
+      <div class="settings-card">
+        <h3>엑셀 컬럼 형식 (자동 매핑)</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">아래 컬럼 이름으로 작성하시면 자동으로 인식합니다.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>소프트웨어명</th><th>분류</th><th>라이선스키</th>
+                <th>총좌석수</th><th>사용좌석수</th><th>담당자</th>
+                <th>담당자이메일</th><th>만료일</th><th>메모</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-size:12px;color:var(--text-muted)">AutoCAD 2024</td>
+                <td>설계</td><td>ACAD-XXXX</td><td>10</td><td>8</td>
+                <td>홍길동</td><td>hong@contec.kr</td><td>2025-12-31</td><td>갱신 예정</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn success" onclick="downloadTemplate()">📄 템플릿 다운로드</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 추가/수정 모달 -->
+<div class="modal-backdrop" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">라이선스 추가</h3>
+      <button class="close-btn" onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <label>소프트웨어명 *</label>
+          <input type="text" id="f-name" placeholder="예) AutoCAD 2024">
+        </div>
+        <div class="form-row">
+          <label>분류</label>
+          <select id="f-cat">
+            <option>설계</option><option>개발</option><option>보안</option><option>업무</option><option>기타</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>라이선스 키</label>
+          <input type="text" id="f-key" placeholder="XXXX-XXXX-XXXX-XXXX">
+        </div>
+        <div class="form-row">
+          <label>총 좌석 수</label>
+          <input type="number" id="f-total" value="1" min="0">
+        </div>
+        <div class="form-row">
+          <label>사용 중 좌석</label>
+          <input type="number" id="f-used" value="0" min="0">
+        </div>
+        <div class="form-row">
+          <label>만료일</label>
+          <input type="date" id="f-expire">
+        </div>
+        <div class="form-row">
+          <label>담당자명</label>
+          <input type="text" id="f-owner" placeholder="홍길동">
+        </div>
+        <div class="form-row">
+          <label>담당자 이메일</label>
+          <input type="email" id="f-email" placeholder="hong@contec.kr">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>메모</label>
+        <textarea id="f-memo" rows="2" placeholder="갱신 예정, 계약 정보 등"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-add')">취소</button>
+      <button class="btn primary" onclick="saveLicense()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 메일 초안 모달 -->
+<div class="modal-backdrop" id="modal-mail">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>메일 초안 생성</h3>
+      <button class="close-btn" onclick="closeModal('modal-mail')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="form-row">
+          <label>수신자</label>
+          <input type="text" id="m-to" readonly style="background:#fafaf8;color:var(--text-muted)">
+        </div>
+        <div class="form-row">
+          <label>메일 유형</label>
+          <select id="m-type" onchange="genDraft()">
+            <option value="expire">만료 예정 알림</option>
+            <option value="expired">만료 안내</option>
+            <option value="renew">갱신 요청</option>
+            <option value="info">라이선스 정보 안내</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>제목</label>
+        <input type="text" id="m-subject">
+      </div>
+      <div class="form-row" style="margin-top:14px">
+        <label>본문 (직접 수정 가능)</label>
+        <div class="mail-preview" id="m-body" contenteditable="true"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn primary" onclick="copyMail('body')">📋 본문 복사</button>
+        <button class="btn" onclick="copyMail('all')">📋 제목+본문 전체 복사</button>
+      </div>
+      <div class="copy-success" id="copy-msg">✓ 클립보드에 복사되었습니다</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://ownvysnzevagywmjwkfs.supabase.co';
+const SUPA_KEY = 'sb_publishable_ZKG9v91u0DNqy86DyS_FNQ_13Y_dQdn';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let licenses = [];
+let editId = null;
+
+// ── AUTH ──────────────────────────────
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) showApp(session.user);
+}
+
+function toggleView(mode) {
+  document.getElementById('view-login').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('view-signup').style.display = mode === 'signup' ? 'block' : 'none';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const btn = document.getElementById('login-btn');
+  const msg = document.getElementById('login-msg');
+  if (!email || !pw) { setMsg(msg, '이메일과 비밀번호를 입력하세요', 'err'); return; }
+  btn.disabled = true; btn.textContent = '로그인 중...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    setMsg(msg, error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 올바르지 않습니다' : error.message, 'err');
+  } else {
+    showApp(data.user);
+  }
+  btn.disabled = false; btn.textContent = '로그인';
+}
+
+async function doSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pw = document.getElementById('signup-pw').value;
+  const pw2 = document.getElementById('signup-pw2').value;
+  const btn = document.getElementById('signup-btn');
+  const msg = document.getElementById('signup-msg');
+  if (!email || !pw) { setMsg(msg, '모든 항목을 입력하세요', 'err'); return; }
+  if (pw !== pw2) { setMsg(msg, '비밀번호가 일치하지 않습니다', 'err'); return; }
+  if (pw.length < 6) { setMsg(msg, '비밀번호는 6자 이상이어야 합니다', 'err'); return; }
+  btn.disabled = true; btn.textContent = '가입 중...';
+  const { error } = await sb.auth.signUp({ email, password: pw });
+  if (error) { setMsg(msg, error.message, 'err'); }
+  else { setMsg(msg, '가입 완료! 이메일 인증 후 로그인하세요. (인증 비활성화 시 바로 로그인 가능)', 'ok'); }
+  btn.disabled = false; btn.textContent = '회원가입';
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function showApp(user) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('user-email-display').textContent = user.email;
+  loadLicenses();
+}
+
+function setMsg(el, text, type) {
+  el.className = 'auth-msg ' + type;
+  el.textContent = text;
+}
+
+// ── DATA ──────────────────────────────
+async function loadLicenses() {
+  const { data, error } = await sb.from('licenses').select('*').order('created_at', { ascending: false });
+  if (error) {
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="9"><div class="loading-row" style="color:var(--red)">❌ 데이터 로드 실패: ${error.message}</div></td></tr>`;
+    return;
+  }
+  licenses = data || [];
+  renderStats();
+  renderTable();
+}
+
+function getStatus(l) {
+  if (!l.expire_date) return 'active';
+  const diff = (new Date(l.expire_date) - new Date()) / 86400000;
+  if (diff < 0) return 'expired';
+  if (diff < 30) return 'expiring';
+  if ((l.used_seats || 0) === 0 && (l.total_seats || 0) > 0) return 'unused';
+  return 'active';
+}
+
+const statusLabel = { active: '정상', expiring: '만료 임박', expired: '만료됨', unused: '미사용' };
+
+function renderStats() {
+  const ss = licenses.map(l => getStatus(l));
+  document.getElementById('s-total').textContent = licenses.length;
+  document.getElementById('s-active').textContent = ss.filter(s => s === 'active').length;
+  document.getElementById('s-expiring').textContent = ss.filter(s => s === 'expiring').length;
+  document.getElementById('s-expired').textContent = ss.filter(s => s === 'expired').length;
+}
+
+function renderTable() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const fs = document.getElementById('filter-status').value;
+  const fc = document.getElementById('filter-cat').value;
+  const filtered = licenses.filter(l => {
+    const s = getStatus(l);
+    return (!q || (l.name + ' ' + (l.owner_name || '') + ' ' + (l.memo || '')).toLowerCase().includes(q))
+      && (!fs || s === fs) && (!fc || l.category === fc);
+  });
+  const tbody = document.getElementById('table-body');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">📭 조건에 맞는 라이선스가 없습니다</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(l => {
+    const s = getStatus(l);
+    const diff = l.expire_date ? Math.ceil((new Date(l.expire_date) - new Date()) / 86400000) : null;
+    const expStr = l.expire_date
+      ? (diff < 0 ? `<span style="color:var(--red);font-weight:500">${l.expire_date} (만료)</span>`
+        : diff < 30 ? `<span style="color:var(--amber);font-weight:500">${l.expire_date} <small>(${diff}일)</small></span>`
+        : l.expire_date)
+      : '-';
+    return `<tr>
+      <td style="font-weight:500">${escHtml(l.name)}</td>
+      <td><span class="tag cat">${escHtml(l.category || '-')}</span></td>
+      <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">${escHtml(l.license_key || '-')}</td>
+      <td style="font-weight:500">${l.used_seats || 0} <span style="color:var(--text-hint)">/ ${l.total_seats || 0}</span></td>
+      <td>${escHtml(l.owner_name || '-')}</td>
+      <td style="font-size:12px">${expStr}</td>
+      <td><span class="tag ${s}">${statusLabel[s]}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.memo || '')}">${escHtml(l.memo || '')}</td>
+      <td><div class="action-btns">
+        <button class="icon-btn mail" onclick="openMailModal('${l.id}')" title="메일 초안 생성">✉</button>
+        <button class="icon-btn" onclick="openEditModal('${l.id}')" title="수정">✎</button>
+        <button class="icon-btn del" onclick="deleteLicense('${l.id}','${escHtml(l.name).replace(/'/g,"\\'")}')">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── CRUD ──────────────────────────────
+function openAddModal() {
+  editId = null;
+  document.getElementById('modal-title').textContent = '라이선스 추가';
+  ['f-name','f-key','f-owner','f-email','f-memo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-total').value = 1;
+  document.getElementById('f-used').value = 0;
+  document.getElementById('f-expire').value = '';
+  document.getElementById('modal-add').classList.add('open');
+}
+
+function openEditModal(id) {
+  const l = licenses.find(x => x.id === id);
+  if (!l) return;
+  editId = id;
+  document.getElementById('modal-title').textContent = '라이선스 수정';
+  document.getElementById('f-name').value = l.name || '';
+  document.getElementById('f-cat').value = l.category || '기타';
+  document.getElementById('f-key').value = l.license_key || '';
+  document.getElementById('f-total').value = l.total_seats || 0;
+  document.getElementById('f-used').value = l.used_seats || 0;
+  document.getElementById('f-expire').value = l.expire_date || '';
+  document.getElementById('f-owner').value = l.owner_name || '';
+  document.getElementById('f-email').value = l.owner_email || '';
+  document.getElementById('f-memo').value = l.memo || '';
+  document.getElementById('modal-add').classList.add('open');
+}
+
+async function saveLicense() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { alert('소프트웨어명을 입력하세요'); return; }
+  const obj = {
+    name, category: document.getElementById('f-cat').value,
+    license_key: document.getElementById('f-key').value,
+    total_seats: +document.getElementById('f-total').value,
+    used_seats: +document.getElementById('f-used').value,
+    expire_date: document.getElementById('f-expire').value || null,
+    owner_name: document.getElementById('f-owner').value,
+    owner_email: document.getElementById('f-email').value,
+    memo: document.getElementById('f-memo').value
+  };
+  let error;
+  if (editId) { ({ error } = await sb.from('licenses').update(obj).eq('id', editId)); }
+  else { ({ error } = await sb.from('licenses').insert([obj])); }
+  if (error) { alert('저장 실패: ' + error.message); return; }
+  closeModal('modal-add');
+  await loadLicenses();
+}
+
+async function deleteLicense(id, name) {
+  if (!confirm(`"${name}" 라이선스를 삭제하시겠습니까?`)) return;
+  const { error } = await sb.from('licenses').delete().eq('id', id);
+  if (error) { alert('삭제 실패: ' + error.message); return; }
+  await loadLicenses();
+}
+
+// ── MAIL ──────────────────────────────
+function openMailModal(id) {
+  document.getElementById('modal-mail').setAttribute('data-id', id);
+  document.getElementById('m-type').value = 'expire';
+  genDraft();
+  document.getElementById('modal-mail').classList.add('open');
+}
+
+function genDraft() {
+  const id = document.getElementById('modal-mail').getAttribute('data-id');
+  const l = licenses.find(x => x.id === id);
+  if (!l) return;
+  const type = document.getElementById('m-type').value;
+  const diff = l.expire_date ? Math.ceil((new Date(l.expire_date) - new Date()) / 86400000) : null;
+  const sender = '이슬 | CONTEC 인사조직관리팀';
+  let subj = '', body = '';
+  if (type === 'expire') {
+    subj = `[SW 라이선스] ${l.name} 만료 예정 안내`;
+    body = `${l.owner_name || '담당자'} 님,\n\n안녕하세요, ${sender}입니다.\n\n현재 사용 중인 ${l.name} 라이선스가 ${l.expire_date} (${diff}일 후) 만료 예정임을 알려드립니다.\n\n• 소프트웨어: ${l.name}\n• 만료일: ${l.expire_date}\n• 사용 좌석: ${l.used_seats || 0} / ${l.total_seats || 0}\n\n갱신 여부를 검토하신 후 회신 부탁드립니다. 만료일 2주 전까지 알려주시면 진행하겠습니다.\n\n감사합니다.\n${sender}`;
+  } else if (type === 'expired') {
+    subj = `[SW 라이선스] ${l.name} 만료 안내`;
+    body = `${l.owner_name || '담당자'} 님,\n\n안녕하세요, ${sender}입니다.\n\n${l.name} 라이선스가 ${l.expire_date}에 만료되었음을 안내드립니다.\n\n지속 사용이 필요하신 경우 갱신 절차를 진행해야 합니다. 사용 여부를 확인하신 후 회신 주시면 감사하겠습니다.\n\n감사합니다.\n${sender}`;
+  } else if (type === 'renew') {
+    subj = `[SW 라이선스] ${l.name} 갱신 요청`;
+    body = `${l.owner_name || '담당자'} 님,\n\n안녕하세요, ${sender}입니다.\n\n${l.name} 라이선스 갱신과 관련하여 아래 내용 확인 부탁드립니다.\n\n• 소프트웨어: ${l.name}\n• 현재 만료일: ${l.expire_date || '미등록'}\n• 현재 좌석 수: ${l.total_seats || 0}\n\n갱신 필요 여부 및 좌석 수 변경 사항을 회신 주시면 구매 요청 진행하겠습니다.\n\n감사합니다.\n${sender}`;
+  } else {
+    subj = `[SW 라이선스] ${l.name} 정보 안내`;
+    body = `${l.owner_name || '담당자'} 님,\n\n안녕하세요, ${sender}입니다.\n\n요청하신 ${l.name} 라이선스 정보를 안내드립니다.\n\n• 소프트웨어: ${l.name}\n• 라이선스 키: ${l.license_key || '문의 필요'}\n• 총 좌석 수: ${l.total_seats || 0}\n• 만료일: ${l.expire_date || '미등록'}\n\n추가 문의 사항이 있으시면 편하게 연락 주세요.\n\n감사합니다.\n${sender}`;
+  }
+  document.getElementById('m-to').value = `${l.owner_name || ''} <${l.owner_email || ''}>`;
+  document.getElementById('m-subject').value = subj;
+  document.getElementById('m-body').textContent = body;
+}
+
+async function copyMail(mode) {
+  const subj = document.getElementById('m-subject').value;
+  const body = document.getElementById('m-body').textContent;
+  const text = mode === 'all' ? `제목: ${subj}\n\n${body}` : body;
+  await navigator.clipboard.writeText(text);
+  const msg = document.getElementById('copy-msg');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+// ── IMPORT ────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  handleFile(e.dataTransfer.files[0]);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (!data.length) { alert('데이터가 없습니다'); return; }
+    const headers = data[0];
+    const rows = data.slice(1).filter(r => r.some(c => c));
+    const fc = (keys) => headers.findIndex(h => h && keys.some(k => String(h).toLowerCase().replace(/\s/g, '').includes(k)));
+    const ci = {
+      name: fc(['소프트웨어명', 'sw명', 'name']),
+      category: fc(['분류', 'category']),
+      license_key: fc(['라이선스키', 'key', 'license']),
+      total_seats: fc(['총좌석', 'seats', 'total']),
+      used_seats: fc(['사용좌석', 'used']),
+      owner_name: fc(['담당자', 'owner']),
+      owner_email: fc(['이메일', 'email']),
+      expire_date: fc(['만료일', 'expire']),
+      memo: fc(['메모', 'note'])
+    };
+    const items = rows.map(r => ({
+      name: String(r[ci.name] || '').trim(),
+      category: r[ci.category] || '기타',
+      license_key: r[ci.license_key] || '',
+      total_seats: +r[ci.total_seats] || 0,
+      used_seats: +r[ci.used_seats] || 0,
+      owner_name: r[ci.owner_name] || '',
+      owner_email: r[ci.owner_email] || '',
+      expire_date: fmtDate(r[ci.expire_date]),
+      memo: r[ci.memo] || ''
+    })).filter(l => l.name);
+    if (!items.length) { alert('인식된 데이터가 없습니다. 템플릿 형식을 확인하세요'); return; }
+    const { error } = await sb.from('licenses').insert(items);
+    const res = document.getElementById('import-result');
+    if (error) {
+      res.innerHTML = `<div style="margin-top:14px;padding:12px;background:var(--red-light);border-radius:8px;font-size:13px;color:var(--red)">❌ 가져오기 실패: ${error.message}</div>`;
+    } else {
+      res.innerHTML = `<div style="margin-top:14px;padding:12px;background:var(--green-light);border-radius:8px;font-size:13px;color:var(--green)">✓ ${items.length}개 라이선스를 성공적으로 가져왔습니다.</div>`;
+      await loadLicenses();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function fmtDate(v) {
+  if (!v) return null;
+  if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null;
+}
+
+function downloadTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['소프트웨어명', '분류', '라이선스키', '총좌석수', '사용좌석수', '담당자', '담당자이메일', '만료일', '메모'],
+    ['AutoCAD 2024', '설계', 'ACAD-2024-XXXX', 10, 8, '홍길동', 'hong@contec.kr', '2025-12-31', '갱신 예정']
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '라이선스');
+  XLSX.writeFile(wb, 'SW라이선스_템플릿.xlsx');
+}
+
+function exportExcel() {
+  const rows = licenses.map(l => ({
+    소프트웨어명: l.name, 분류: l.category, 라이선스키: l.license_key,
+    총좌석수: l.total_seats, 사용좌석수: l.used_seats,
+    담당자: l.owner_name, 담당자이메일: l.owner_email,
+    만료일: l.expire_date, 상태: statusLabel[getStatus(l)], 메모: l.memo
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '라이선스');
+  XLSX.writeFile(wb, `SW라이선스_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+});
+
+init();
+</script>
+</body>
+</html>
